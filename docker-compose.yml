@@ -1,0 +1,11 @@
+services:
+  bot:
+    build: .
+    container_name: avto-bot
+    env_file: .env
+    volumes:
+      - ./data:/app/data
+      - ./config:/app/config
+    restart: unless-stopped
+    init: true
+    shm_size: 1gb

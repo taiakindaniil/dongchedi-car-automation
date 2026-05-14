@@ -1,0 +1,16 @@
+.env
+.venv/
+__pycache__/
+*.pyc
+*.pyo
+*.egg-info/
+.pytest_cache/
+.ruff_cache/
+data/*.db
+data/playwright_profile/
+data/font_map_cache/
+data/*.db-journal
+data/*.db-wal
+data/*.db-shm
+.DS_Store
+*.log

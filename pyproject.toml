@@ -1,0 +1,48 @@
+[project]
+name = "avto-bot"
+version = "0.1.0"
+description = "Daily Telegram digest of used-car listings from dongchedi.com with weighted scoring"
+readme = "README.md"
+requires-python = ">=3.11"
+dependencies = [
+    "brotli>=1.1.0",
+    "fonttools>=4.50.0",
+    "aiogram>=3.13.0",
+    "aiosqlite>=0.20.0",
+    "apscheduler>=3.10.4",
+    "playwright==1.48.0",
+    "pydantic>=2.9.0",
+    "pydantic-settings>=2.5.0",
+    "python-dotenv>=1.0.1",
+    "pyyaml>=6.0.2",
+    "tenacity>=9.0.0",
+    "tzdata>=2024.2",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8.3.0",
+    "pytest-asyncio>=0.24.0",
+    "ruff>=0.6.0",
+]
+
+[project.scripts]
+avto-bot = "avto_bot.main:cli"
+
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py311"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "W", "UP", "B"]
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+testpaths = ["tests"]

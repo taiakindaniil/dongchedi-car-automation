@@ -1,0 +1,74 @@
+# Конфиг подбора. Любое поле можно убрать / поставить null / [] —
+# тогда фильтр не применяется (= "не ограничивать").
+
+filters:
+  # GB-код города (110000 = Пекин, 310000 = Шанхай, 440100 = Гуанчжоу,
+  # 510100 = Чэнду, 320100 = Нанкин). null = по всей стране.
+  city: 110000
+
+  # Список id брендов из brands.py. Пусто = все марки.
+  # Примеры: 1=大众 VW, 3=奔驰 Mercedes, 4=宝马 BMW, 5=丰田 Toyota,
+  # 16=比亚迪 BYD, 20=保时捷 Porsche, 63=特斯拉 Tesla, 535=小米汽车 Xiaomi.
+  brand_ids: [20]
+
+  # Семейство кузова. Допустимо: sedan | suv | mpv | sport
+  body_family: []
+
+  # Уточнённый класс. Допустимо:
+  #   седаны: micro | small | compact | mid | mid_large | large
+  #   SUV:    small_suv | compact_suv | mid_suv | mid_large_suv | large_suv
+  #   MPV:    small_mpv | compact_mpv | mid_mpv | large_mpv
+  body_class: []
+
+  # Цена в 万 RMB (10 000 ¥). [from, to]; null означает "без ограничения".
+  # Пример: [10, 50] = 100 000 – 500 000 ¥.
+  price_wan: [null, null]
+
+  # Год выпуска. [from, to].
+  year_range: [null, null]
+
+  # Максимальный пробег в 万 км. 10 = 100 000 км.
+  km_max_wan: null
+
+  # Тип топлива. Допустимо:
+  # petrol | diesel | hev | bev | ext_range | phev | mild_hybrid
+  fuel: []
+
+  # Коробка. manual | auto | null.
+  transmission: null
+
+  # Привод. fwd | rwd | awd | null.
+  drive: null
+
+  # Эконорма. guo4 | guo5 | guo6 | null.
+  emission: null
+
+  # Происхождение. jv | domestic | jv_domestic | import | null.
+  origin: null
+
+  # Если true — оставляем только объявления с 检测报告.
+  inspected_only: false
+
+  # Сколько страниц парсить за один запуск. На странице ~60 карточек.
+  pages_to_scan: 3
+
+# Веса должны примерно складываться в 1, но это не обязательно —
+# скоринг нормализуется по сумме весов.
+scoring_weights:
+  freshness:   0.30   # объявление впервые видим сегодня
+  price_value: 0.20   # ниже рыночной медианы внутри своей модели
+  low_km:      0.15   # низкий пробег относительно возраста
+  owners:      0.10   # минимум перепродаж
+  inspection:  0.10   # есть 检测报告
+  age:         0.10   # моложе
+  premium:     0.05   # премиум-марка
+
+notify:
+  # Сколько объявлений в день максимум отправлять.
+  top_n_per_day: 10
+  # cron в TZ из .env (Asia/Shanghai по умолчанию). "0 10 * * *" = 10:00.
+  schedule_cron: "0 10 * * *"
+  # Минимальный скор, ниже которого ничего не шлём.
+  min_score: 0.40
+  # Слать с фото (sendPhoto) или текстом (sendMessage).
+  send_photos: true
