@@ -37,6 +37,8 @@ class ScoredOffer:
     score: float
     breakdown: dict[str, float]
     is_new_today: bool
+    # Positive when ``price_yuan`` is strictly below the series (or global) median.
+    price_below_median_pct: float | None = None
 
 
 def _clip01(x: float) -> float:
@@ -163,12 +165,23 @@ def score_offers(
             + weights.premium     * parts["premium"]
         )
         score = weighted / weight_total
+        key = o.series_name or o.title or "_unknown"
+        median_price = medians.get(key, 0.0)
+        pct_below: float | None = None
+        if (
+            o.price_yuan is not None
+            and o.price_yuan > 0
+            and median_price > 0
+            and o.price_yuan < median_price
+        ):
+            pct_below = (median_price - o.price_yuan) / median_price * 100.0
         out.append(
             ScoredOffer(
                 offer=o,
                 score=score,
                 breakdown=parts,
                 is_new_today=o.offer_id in new_today_ids,
+                price_below_median_pct=pct_below,
             )
         )
     out.sort(key=lambda s: s.score, reverse=True)

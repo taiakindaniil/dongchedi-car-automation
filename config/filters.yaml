@@ -72,3 +72,5 @@ notify:
   min_score: 0.40
   # Слать с фото (sendPhoto) или текстом (sendMessage).
   send_photos: true
+  # Показать в карточке разбор: подскоры 0–1, веса и формула итогового рейтинга.
+  show_score_breakdown: true

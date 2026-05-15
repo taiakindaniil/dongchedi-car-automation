@@ -23,6 +23,7 @@ from aiogram.enums import ParseMode
 from aiogram.exceptions import TelegramAPIError, TelegramRetryAfter
 
 from .brands import brand_name, city_display_ru
+from .config import ScoringWeights
 from .scorer import ScoredOffer
 
 logger = logging.getLogger(__name__)
@@ -37,6 +38,17 @@ _EMOJI_OWNERS = ("5920344347152224466", "👤")
 _EMOJI_REPORT = ("5778423822940114949", "🛡")
 _EMOJI_CITY = ("5870718761710915573", "📍")
 _EMOJI_LINK = ("5877465816030515018", "🔗")
+_EMOJI_BELOW_MEDIAN = ("5312241539987020022", "🔥")
+
+_BREAKDOWN_ROWS: tuple[tuple[str, str], ...] = (
+    ("freshness", "Свежесть"),
+    ("price_value", "Цена к медиане"),
+    ("low_km", "Пробег"),
+    ("owners", "Владельцы"),
+    ("inspection", "Отчёт"),
+    ("age", "Возраст"),
+    ("premium", "Премиум-сегмент"),
+)
 
 
 def _tg_emoji(emoji_id: str, fallback: str) -> str:
@@ -59,7 +71,41 @@ def _format_km(km: float | None) -> str:
     return f"{km:.0f} км"
 
 
-def render_card(scored: ScoredOffer, *, city_code: int | None, index: int = 1) -> str:
+def _weight_for_key(weights: ScoringWeights, key: str) -> float:
+    return getattr(weights, key)
+
+
+def _score_breakdown_lines(scored: ScoredOffer, weights: ScoringWeights) -> list[str]:
+    """Human-readable breakdown: sub-score [0,1], YAML weight, product, then total."""
+    bd = scored.breakdown
+    total_w = weights.total() or 1.0
+    lines: list[str] = [
+        "<i>Разбор рейтинга</i> (подскоры 0–1, веса из YAML):",
+    ]
+    acc = 0.0
+    n = len(_BREAKDOWN_ROWS)
+    for i, (key, label) in enumerate(_BREAKDOWN_ROWS):
+        b = float(bd.get(key, 0.0))
+        w = _weight_for_key(weights, key)
+        prod = w * b
+        acc += prod
+        branch = "├" if i < n - 1 else "└"
+        esc = html.escape(label)
+        lines.append(f"{branch} {esc}: {b:.2f} × {w:.2f} → {prod:.2f}")
+    lines.append(
+        f"<b>Итог</b>: {acc:.2f} / {total_w:.2f} = <b>{scored.score:.2f}</b>"
+    )
+    return lines
+
+
+def render_card(
+    scored: ScoredOffer,
+    *,
+    city_code: int | None,
+    index: int = 1,
+    show_score_breakdown: bool = False,
+    scoring_weights: ScoringWeights | None = None,
+) -> str:
     """Build an HTML caption / message body for one offer (tree + custom tg-emoji)."""
     o = scored.offer
     title_parts: list[str] = []
@@ -90,8 +136,9 @@ def render_card(scored: ScoredOffer, *, city_code: int | None, index: int = 1) -
     e_rep = _tg_emoji(*_EMOJI_REPORT)
     e_pin = _tg_emoji(*_EMOJI_CITY)
     e_link = _tg_emoji(*_EMOJI_LINK)
+    e_fire = _tg_emoji(*_EMOJI_BELOW_MEDIAN)
 
-    head = f"{index}. {html.escape(title)} ({scored.score:.1f})"
+    head = f"{index}. {html.escape(title)} ({scored.score:.2f})"
     body_lines = [
         f"┠ {e_price} Цена: {html.escape(_format_yuan_line(o.price_yuan))}",
         f"┠ {e_msrp} Цена за новую: {html.escape(_format_yuan_line(o.official_price_yuan))}",
@@ -99,9 +146,21 @@ def render_card(scored: ScoredOffer, *, city_code: int | None, index: int = 1) -
         f"┠ {e_own} Было владельцев: {html.escape(owners)}",
         f"┠ {e_rep} Отчет: {report}",
         f"└ {e_pin} Город: {html.escape(location)}",
-        f" ",
-        f"{e_link} <a href=\"{html.escape(o.detail_url, quote=True)}\">Открыть на Dongchedi</a>",
     ]
+    pbm = scored.price_below_median_pct
+    if pbm is not None and pbm > 0:
+        pct_txt = f"{pbm:.0f}" if pbm >= 10 else f"{pbm:.1f}".rstrip("0").rstrip(".")
+        body_lines.append(" ")
+        body_lines.append(f"{e_fire} Цена на {pct_txt}% ниже медианы")
+    if show_score_breakdown and scoring_weights is not None:
+        body_lines.append("")
+        body_lines.extend(_score_breakdown_lines(scored, scoring_weights))
+    body_lines.extend(
+        [
+            "",
+            f"{e_link} <a href=\"{html.escape(o.detail_url, quote=True)}\">Открыть на Dongchedi</a>",
+        ]
+    )
     return f"<b>{head}</b>\n" + "\n".join(body_lines)
 
 
@@ -183,6 +242,8 @@ class TelegramNotifier:
         scanned: int,
         new_count: int,
         with_photos: bool,
+        show_score_breakdown: bool = False,
+        scoring_weights: ScoringWeights | None = None,
     ) -> int:
         """Send a digest header followed by one card per scored offer.
 
@@ -206,7 +267,13 @@ class TelegramNotifier:
 
         sent = 0
         for i, s in enumerate(scored, start=1):
-            caption = render_card(s, city_code=self._city_code, index=i)
+            caption = render_card(
+                s,
+                city_code=self._city_code,
+                index=i,
+                show_score_breakdown=show_score_breakdown,
+                scoring_weights=scoring_weights,
+            )
             if with_photos and s.offer.cover_image:
                 await self._send_photo(s.offer.cover_image, caption)
             else:

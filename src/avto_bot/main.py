@@ -117,6 +117,8 @@ async def run_once(settings: Settings, app_cfg: AppConfig) -> dict[str, Any]:
                     scanned=scanned,
                     new_count=len(new_today_total),
                     with_photos=app_cfg.notify.send_photos,
+                    show_score_breakdown=app_cfg.notify.show_score_breakdown,
+                    scoring_weights=app_cfg.scoring_weights,
                 )
                 await storage.mark_notified([s.offer.offer_id for s in to_send])
     except Exception as exc:  # noqa: BLE001 — record failure for ops

@@ -106,6 +106,7 @@ notify:
   schedule_cron: "0 10 * * *"   # 10:00 каждый день
   min_score: 0.45
   send_photos: true
+  show_score_breakdown: false   # true — в карточке показать подскоры и веса
 ```
 
 ## Формула скоринга

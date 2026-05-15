@@ -106,6 +106,8 @@ async def test_pipeline_end_to_end(tmp_path: Path) -> None:
         assert "Пробег:" in card
         assert "Пекин" in card
         assert "(0." in card  # score in title
+        assert "5312241539987020022" in card  # below-median fire tg-emoji
+        assert "ниже медианы" in card
 
         header = render_digest_header(
             today=date.today(), new_count=3, sending_count=3, scanned=3

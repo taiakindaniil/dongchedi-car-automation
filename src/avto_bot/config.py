@@ -152,6 +152,8 @@ class NotifyConfig(BaseModel):
     schedule_cron: str = "0 10 * * *"
     min_score: float = Field(default=0.40, ge=0.0, le=1.0)
     send_photos: bool = True
+    # If true, each card includes sub-scores, weights, and the weighted-sum formula.
+    show_score_breakdown: bool = False
 
 
 class AppConfig(BaseModel):

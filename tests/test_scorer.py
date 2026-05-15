@@ -70,6 +70,10 @@ def test_lower_price_wins_within_series() -> None:
     by_id = {s.offer.offer_id: s for s in scored}
     assert by_id["cheap"].breakdown["price_value"] > by_id["pricey"].breakdown["price_value"]
     assert by_id["pricey"].breakdown["price_value"] == 0.0
+    assert by_id["cheap"].price_below_median_pct is not None
+    assert abs(by_id["cheap"].price_below_median_pct - 100 / 3) < 0.1
+    assert by_id["pricey"].price_below_median_pct is None
+    assert by_id["med"].price_below_median_pct is None
 
 
 def test_high_mileage_penalised() -> None:
