@@ -5,8 +5,8 @@ from __future__ import annotations
 import re
 
 from avto_bot.config import ScoringWeights
-from avto_bot.notifier import render_card
-from avto_bot.parser import RawOffer
+from avto_bot.integrations.notifications.telegram import render_card
+from avto_bot.parsers.dongchedi.parser import RawOffer
 from avto_bot.scorer import score_offers
 
 

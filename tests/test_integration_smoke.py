@@ -14,11 +14,14 @@ from pathlib import Path
 import pytest
 
 from avto_bot.config import AppConfig, FiltersConfig, NotifyConfig, ScoringWeights
-from avto_bot.notifier import render_card, render_digest_header
-from avto_bot.parser import RawOffer
+from avto_bot.integrations.notifications.telegram import (
+    render_card,
+    render_digest_header,
+)
+from avto_bot.parsers.dongchedi.parser import RawOffer
+from avto_bot.parsers.dongchedi.url_builder import iter_urls
 from avto_bot.scorer import score_offers
 from avto_bot.storage import Storage
-from avto_bot.url_builder import iter_urls
 
 
 def make(

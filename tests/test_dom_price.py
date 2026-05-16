@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from avto_bot.parser import RawOffer, apply_dom_sale_price_wan
+from avto_bot.parsers.dongchedi.parser import RawOffer, apply_dom_sale_price_wan
 
 
 def test_apply_dom_overwrites_none() -> None:

@@ -9,9 +9,9 @@ Telegram.
 
 ## Что внутри
 
-- `src/avto_bot/url_builder.py` — собирает 28-позиционный slug
+- `src/avto_bot/parsers/dongchedi/url_builder.py` — собирает 28-позиционный slug
   `/usedcar/...` из конфига (все фильтры сайта поддерживаются).
-- `src/avto_bot/parser.py` — только **Chromium из Playwright** (не системный
+- `src/avto_bot/parsers/dongchedi/parser.py` — только **Chromium из Playwright** (не системный
   Chrome): `launch_persistent_context` с каталогом `PLAYWRIGHT_USER_DATA_DIR`
   (по умолчанию `./data/playwright_profile`), чтобы **cookies и сессия**
   сохранялись между запусками и уходили вместе с запросами к API. Перехват
@@ -24,7 +24,7 @@ Telegram.
   расчётом «рыночной медианы» прямо по текущей выборке.
 - `src/avto_bot/storage.py` — `aiosqlite`-хранилище для дедупа и
   отметок «новый сегодня / уже отправлено».
-- `src/avto_bot/notifier.py` — `aiogram 3.x`, дайджест и карточки с
+- `src/avto_bot/integrations/notifications/telegram.py` — `aiogram 3.x`, дайджест и карточки с
   фото, мягкий rate-limit.
 - `src/avto_bot/main.py` — `APScheduler` + CLI `run` / `serve`.
 
@@ -91,6 +91,7 @@ filters:
   origin: null              # jv | domestic | jv_domestic | import
   inspected_only: false
   pages_to_scan: 3
+  list_sort: newly_published_first   # или site_default
 
 scoring_weights:
   freshness:   0.30

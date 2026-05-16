@@ -8,7 +8,7 @@ from pathlib import Path
 
 import pytest
 
-from avto_bot.font_decode import (
+from avto_bot.parsers.dongchedi.font_decode import (
     FontMapCache,
     apply_font_decoded_prices,
     build_codepoint_map_from_bytes,
@@ -19,7 +19,7 @@ from avto_bot.font_decode import (
     pick_font_char_map,
     should_capture_font_response,
 )
-from avto_bot.parser import RawOffer
+from avto_bot.parsers.dongchedi.parser import RawOffer
 
 
 def test_decode_mapped_string_and_parse_wan() -> None:
@@ -108,7 +108,10 @@ def test_pick_font_char_map_scores_samples(monkeypatch: pytest.MonkeyPatch, tmp_
     def _fake_build(_data: bytes) -> dict[int, str] | None:
         return fake_map
 
-    monkeypatch.setattr("avto_bot.font_decode.build_codepoint_map_from_bytes", _fake_build)
+    monkeypatch.setattr(
+        "avto_bot.parsers.dongchedi.font_decode.build_codepoint_map_from_bytes",
+        _fake_build,
+    )
     fonts = {"https://cdn.example.com/n.woff2": b"x" * 300}
     samples = ["\ue463.\ue463\ue411\ue40a万"]
     chosen = pick_font_char_map(fonts, cache, samples)
@@ -137,7 +140,10 @@ def test_apply_font_decoded_prices_official_and_mileage(
     def _fake_build(_data: bytes) -> dict[int, str] | None:
         return fake_map
 
-    monkeypatch.setattr("avto_bot.font_decode.build_codepoint_map_from_bytes", _fake_build)
+    monkeypatch.setattr(
+        "avto_bot.parsers.dongchedi.font_decode.build_codepoint_map_from_bytes",
+        _fake_build,
+    )
     o = RawOffer(
         offer_id="1",
         title="t",
@@ -187,7 +193,10 @@ def test_apply_font_mileage_from_sub_title(
     def _fake_build(_data: bytes) -> dict[int, str] | None:
         return fake_map
 
-    monkeypatch.setattr("avto_bot.font_decode.build_codepoint_map_from_bytes", _fake_build)
+    monkeypatch.setattr(
+        "avto_bot.parsers.dongchedi.font_decode.build_codepoint_map_from_bytes",
+        _fake_build,
+    )
     o = RawOffer(
         offer_id="1",
         title="t",
@@ -221,7 +230,10 @@ def test_apply_font_decoded_prices(monkeypatch: pytest.MonkeyPatch, tmp_path: Pa
     def _fake_build(_data: bytes) -> dict[int, str] | None:
         return fake_map
 
-    monkeypatch.setattr("avto_bot.font_decode.build_codepoint_map_from_bytes", _fake_build)
+    monkeypatch.setattr(
+        "avto_bot.parsers.dongchedi.font_decode.build_codepoint_map_from_bytes",
+        _fake_build,
+    )
     o = RawOffer(
         offer_id="1",
         title="t",

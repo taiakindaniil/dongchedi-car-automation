@@ -22,9 +22,9 @@ from aiogram.client.default import DefaultBotProperties
 from aiogram.enums import ParseMode
 from aiogram.exceptions import TelegramAPIError, TelegramRetryAfter
 
-from .brands import brand_name, city_display_ru
-from .config import ScoringWeights
-from .scorer import ScoredOffer
+from avto_bot.brands import brand_name, city_display_ru
+from avto_bot.config import ScoringWeights
+from avto_bot.scorer import ScoredOffer
 
 logger = logging.getLogger(__name__)
 
@@ -158,7 +158,8 @@ def render_card(
     body_lines.extend(
         [
             "",
-            f"{e_link} <a href=\"{html.escape(o.detail_url, quote=True)}\">Открыть на Dongchedi</a>",
+            f"{e_link} <a href=\"{html.escape(o.detail_url, quote=True)}\">"
+            "Открыть на Dongchedi</a>",
         ]
     )
     return f"<b>{head}</b>\n" + "\n".join(body_lines)

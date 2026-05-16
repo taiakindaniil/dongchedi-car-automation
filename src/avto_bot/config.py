@@ -12,7 +12,7 @@ from enum import Enum
 from pathlib import Path
 
 import yaml
-from pydantic import BaseModel, Field, model_validator
+from pydantic import BaseModel, Field, field_validator, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -80,6 +80,13 @@ class Origin(str, Enum):
     import_ = "import"
 
 
+class UsedCarListSort(str, Enum):
+    """Listing order on dongchedi (slug segment after page — see parsers/dongchedi/url_builder)."""
+
+    site_default = "site_default"
+    newly_published_first = "newly_published_first"
+
+
 class FiltersConfig(BaseModel):
     city: int | None = None
     brand_ids: list[int] = Field(default_factory=list)
@@ -95,6 +102,20 @@ class FiltersConfig(BaseModel):
     origin: Origin | None = None
     inspected_only: bool = False
     pages_to_scan: int = Field(default=3, ge=1, le=20)
+    # ``newly_published_first`` → slug ``4`` (сначала свежие); ``site_default`` → ``x``.
+    list_sort: UsedCarListSort = Field(default=UsedCarListSort.newly_published_first)
+
+    @field_validator("list_sort", mode="before")
+    @classmethod
+    def _coerce_list_sort_slug_aliases(cls, v: object) -> object:
+        """Accept legacy YAML ``x`` / ``4`` as well as enum value strings."""
+        if isinstance(v, UsedCarListSort):
+            return v
+        if v == "x" or v == "X":
+            return UsedCarListSort.site_default.value
+        if v == "4" or v == 4:
+            return UsedCarListSort.newly_published_first.value
+        return v
 
     @model_validator(mode="before")
     @classmethod

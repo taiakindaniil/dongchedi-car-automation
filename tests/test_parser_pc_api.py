@@ -4,7 +4,10 @@ from __future__ import annotations
 
 import pytest
 
-from avto_bot.parser import _normalise_offer, extract_offers_from_api_payload
+from avto_bot.parsers.dongchedi.parser import (
+    _normalise_offer,
+    extract_offers_from_api_payload,
+)
 
 
 def test_normalise_pc_row_inspection_from_tags() -> None:

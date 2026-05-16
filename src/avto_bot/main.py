@@ -23,11 +23,11 @@ from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from apscheduler.triggers.cron import CronTrigger
 
 from .config import AppConfig, Settings, load_app_config
-from .notifier import TelegramNotifier
-from .parser import DongchediParser, RawOffer
+from .integrations.notifications.telegram import TelegramNotifier
+from .parsers.dongchedi.parser import DongchediParser, RawOffer
+from .parsers.dongchedi.url_builder import iter_urls
 from .scorer import score_offers
 from .storage import Storage
-from .url_builder import iter_urls
 
 logger = logging.getLogger("avto_bot")
 

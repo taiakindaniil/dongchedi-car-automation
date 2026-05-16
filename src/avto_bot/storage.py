@@ -18,12 +18,12 @@ from __future__ import annotations
 import json
 import logging
 from dataclasses import asdict
-from datetime import date, datetime, timezone
+from datetime import UTC, date, datetime
 from pathlib import Path
 
 import aiosqlite
 
-from .parser import RawOffer
+from .parsers.dongchedi.parser import RawOffer
 
 logger = logging.getLogger(__name__)
 
@@ -58,7 +58,7 @@ def _today_iso() -> str:
 
 
 def _now_iso() -> str:
-    return datetime.now(timezone.utc).isoformat()
+    return datetime.now(UTC).isoformat()
 
 
 def _serialise_offer(offer: RawOffer) -> str:
@@ -86,7 +86,7 @@ class Storage:
             await self._db.close()
             self._db = None
 
-    async def __aenter__(self) -> "Storage":
+    async def __aenter__(self) -> Storage:
         await self.connect()
         return self
 

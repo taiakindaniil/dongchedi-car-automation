@@ -24,7 +24,7 @@ from datetime import date
 
 from .brands import PREMIUM_BRAND_IDS
 from .config import ScoringWeights
-from .parser import RawOffer
+from .parsers.dongchedi.parser import RawOffer
 
 CURRENT_YEAR_FOR_AGE = date.today().year
 KM_PER_YEAR_BUDGET = 20_000.0  # above this we treat the car as "tired"
