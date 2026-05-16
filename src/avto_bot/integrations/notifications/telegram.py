@@ -15,7 +15,7 @@ from __future__ import annotations
 import asyncio
 import html
 import logging
-from datetime import date
+from datetime import UTC, date, datetime
 
 from aiogram import Bot
 from aiogram.client.default import DefaultBotProperties
@@ -24,6 +24,8 @@ from aiogram.exceptions import TelegramAPIError, TelegramRetryAfter
 
 from avto_bot.brands import brand_name, city_display_ru
 from avto_bot.config import ScoringWeights
+from avto_bot.fleet_risk import FLEET_SCORE_MAX
+from avto_bot.parsers.dongchedi.parser import RawOffer
 from avto_bot.scorer import ScoredOffer
 
 logger = logging.getLogger(__name__)
@@ -39,10 +41,12 @@ _EMOJI_REPORT = ("5778423822940114949", "🛡")
 _EMOJI_CITY = ("5870718761710915573", "📍")
 _EMOJI_LINK = ("5877465816030515018", "🔗")
 _EMOJI_BELOW_MEDIAN = ("5312241539987020022", "🔥")
+_EMOJI_FIRST_REGISTER = ("5839042506024555846", "➡️")
+_EMOJI_FLEET_RISK = ("5775887550262546277", "❗️")
 
 _BREAKDOWN_ROWS: tuple[tuple[str, str], ...] = (
     ("freshness", "Свежесть"),
-    ("price_value", "Цена к медиане"),
+    ("price_value", "Цена к рыночной оценке"),
     ("low_km", "Пробег"),
     ("owners", "Владельцы"),
     ("inspection", "Отчёт"),
@@ -53,6 +57,29 @@ _BREAKDOWN_ROWS: tuple[tuple[str, str], ...] = (
 
 def _tg_emoji(emoji_id: str, fallback: str) -> str:
     return f'<tg-emoji emoji-id="{emoji_id}">{fallback}</tg-emoji>'
+
+
+def _format_first_register(ts: int | None) -> str:
+    if ts is None or ts <= 1_000_000_000:
+        return "перв. регистрация ?"
+    d = datetime.fromtimestamp(ts, tz=UTC).date().isoformat()
+    return d
+
+
+def _risk_inline_for_report(o: RawOffer) -> str:
+    """Short Russian fragment for the «Отчёт» line (no Chinese)."""
+    pairs: list[tuple[bool | None, str]] = [
+        (o.is_accident, "ДТП"),
+        (o.is_soaked, "утопление"),
+        (o.is_burned, "пожар"),
+        (o.is_changed_mileage, "скрутка пробега"),
+    ]
+    if all(v is None for v, _ in pairs):
+        return "данных по рискам в отчёте нет"
+    bad = [label for v, label in pairs if v is True]
+    if bad:
+        return "замечания: " + ", ".join(bad)
+    return "критичных замечаний нет"
 
 
 def _format_yuan_line(yuan: float | None) -> str:
@@ -121,13 +148,11 @@ def render_card(
 
     location = city_display_ru(o.city_name, city_code)
     report = "✅" if o.has_inspection_report else "❌"
-    owners = (
-        "0"
-        if o.transfer_count == 0
-        else str(o.transfer_count)
-        if o.transfer_count is not None
-        else "?"
-    )
+    # API ``transfer_count`` = переоформления; владельцев обычно на один больше.
+    if o.transfer_count is None:
+        owners = "?"
+    else:
+        owners = str(o.transfer_count + 1)
 
     e_price = _tg_emoji(*_EMOJI_PRICE)
     e_msrp = _tg_emoji(*_EMOJI_MSRP)
@@ -137,21 +162,33 @@ def render_card(
     e_pin = _tg_emoji(*_EMOJI_CITY)
     e_link = _tg_emoji(*_EMOJI_LINK)
     e_fire = _tg_emoji(*_EMOJI_BELOW_MEDIAN)
+    e_reg = _tg_emoji(*_EMOJI_FIRST_REGISTER)
+    e_fleet = _tg_emoji(*_EMOJI_FLEET_RISK)
 
     head = f"{index}. {html.escape(title)} ({scored.score:.2f})"
-    body_lines = [
-        f"┠ {e_price} Цена: {html.escape(_format_yuan_line(o.price_yuan))}",
-        f"┠ {e_msrp} Цена за новую: {html.escape(_format_yuan_line(o.official_price_yuan))}",
-        f"┠ {e_km} Пробег: {html.escape(_format_km(o.mileage_km))}",
-        f"┠ {e_own} Было владельцев: {html.escape(owners)}",
-        f"┠ {e_rep} Отчет: {report}",
-        f"└ {e_pin} Город: {html.escape(location)}",
-    ]
-    pbm = scored.price_below_median_pct
-    if pbm is not None and pbm > 0:
-        pct_txt = f"{pbm:.0f}" if pbm >= 10 else f"{pbm:.1f}".rstrip("0").rstrip(".")
+    reg_ts = html.escape(_format_first_register(o.first_register_timestamp))
+    reg_line = f"┠ {e_reg} {reg_ts} (первая регистрация)"
+    risk_ru = html.escape(_risk_inline_for_report(o))
+    body_lines: list[str] = [reg_line]
+    body_lines.extend(
+        [
+            f"┠ {e_price} Цена: {html.escape(_format_yuan_line(o.price_yuan))}",
+            f"┠ {e_msrp} Цена за новую: {html.escape(_format_yuan_line(o.official_price_yuan))}",
+            f"┠ {e_km} Пробег: {html.escape(_format_km(o.mileage_km))}",
+            f"┠ {e_own} Было владельцев: {html.escape(owners)}",
+            f"┠ {e_rep} Отчёт: {report} — {risk_ru}",
+            f"┠ {e_pin} Город: {html.escape(location)}",
+            f"└ {e_fleet} Коммерческий риск: {scored.fleet_risk_score}/{FLEET_SCORE_MAX} "
+            "(не влияет на рейтинг)",
+        ]
+    )
+    pbv = scored.price_below_valuation_pct
+    if pbv is not None and pbv > 0:
+        pct_txt = f"{pbv:.0f}" if pbv >= 10 else f"{pbv:.1f}".rstrip("0").rstrip(".")
         body_lines.append(" ")
-        body_lines.append(f"{e_fire} Цена на {pct_txt}% ниже медианы")
+        body_lines.append(
+            f"{e_fire} Цена на {pct_txt}% ниже рыночной оценки похожих авто"
+        )
     if show_score_breakdown and scoring_weights is not None:
         body_lines.append("")
         body_lines.extend(_score_breakdown_lines(scored, scoring_weights))

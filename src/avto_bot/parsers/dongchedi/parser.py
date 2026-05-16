@@ -36,6 +36,7 @@ from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
+from urllib.parse import urlencode
 
 from playwright.async_api import (
     BrowserContext,
@@ -77,6 +78,14 @@ USER_AGENT = (
 LIST_XHR_PATTERN = re.compile(
     r"/motor/(?:pc/sh/sh_sku_list|sh_go/sh_sku/list)",
     re.IGNORECASE,
+)
+
+# Mobile Sophon card detail (H5) — same cookies as listing scrape.
+SOPHON_DETAIL_HOST = "https://m.dcdapp.com"
+SOPHON_DETAIL_PATH = "/motor/ecom/sophon/guide/card/detail"
+MOBILE_USER_AGENT = (
+    "Mozilla/5.0 (iPhone; CPU iPhone OS 16_6 like Mac OS X) "
+    "AppleWebKit/605.1.15 (KHTML, like Gecko) Version/16.6 Mobile/15E148 Safari/604.1"
 )
 
 # After paint, digits in the *card* are real ASCII, but walking too far up the
@@ -175,6 +184,15 @@ class RawOffer:
     pub_timestamp: int | None    # unix seconds, UTC
     cover_image: str | None
     detail_url: str
+    first_register_timestamp: int | None = None
+    market_valuation_yuan: float | None = None
+    is_accident: bool | None = None
+    is_soaked: bool | None = None
+    is_burned: bool | None = None
+    is_changed_mileage: bool | None = None
+    listing_biz_type: int | None = None
+    # Pruned mobile Sophon ``card/detail`` subtree for SQLite (see sophon_detail).
+    sophon_snapshot: dict[str, Any] | None = field(default=None, repr=False)
     payload: dict[str, Any] = field(default_factory=dict, repr=False)
 
 
@@ -239,12 +257,26 @@ def _normalise_offer(raw: dict[str, Any]) -> RawOffer | None:
     brand_name = raw.get("brand_name") or raw.get("brand") or None
     brand_id = _coerce_int(raw.get("brand_id") or raw.get("brandId"))
 
+    first_register_timestamp: int | None = None
+    fr_raw = raw.get("first_register_time")
+    if isinstance(fr_raw, (int, float)) and fr_raw > 1_000_000_000:
+        first_register_timestamp = int(fr_raw)
+
+    reg_year: int | None = None
+    if first_register_timestamp is not None:
+        reg_year = datetime.fromtimestamp(first_register_timestamp, tz=UTC).year
+        if not (1980 <= reg_year <= 2100):
+            reg_year = None
+
     year = (
         _coerce_int(raw.get("car_year"))
+        or reg_year
         or _parse_year(raw.get("year"))
         or _parse_year(raw.get("first_register_time"))
         or _parse_year(title)
     )
+
+    listing_biz_type = _coerce_int(raw.get("biz_type"))
 
     mileage_km: float | None = None
     if (cm := raw.get("car_mileage")) not in (None, ""):
@@ -351,6 +383,8 @@ def _normalise_offer(raw: dict[str, Any]) -> RawOffer | None:
         pub_timestamp=pub_ts,
         cover_image=cover_image,
         detail_url=detail_url,
+        first_register_timestamp=first_register_timestamp,
+        listing_biz_type=listing_biz_type,
         payload=raw,
     )
 
@@ -569,6 +603,75 @@ class DongchediParser:
             logger.exception("fetch_listings exhausted retries: %s", exc)
             return []
         return []
+
+    async def enrich_offers_from_mobile_detail(
+        self,
+        offers: list[RawOffer],
+        *,
+        default_sh_city_name: str | None = None,
+        mid: str = "400000003",
+        concurrency: int = 5,
+    ) -> None:
+        """GET mobile Sophon ``card/detail`` JSON per offer (same Playwright cookies)."""
+        if not offers:
+            return
+        from .sophon_detail import apply_sophon_detail_to_offer
+
+        assert self._context is not None
+        sem = asyncio.Semaphore(concurrency)
+
+        async def one(offer: RawOffer) -> None:
+            sh_city = (offer.city_name and offer.city_name.strip()) or (
+                default_sh_city_name and default_sh_city_name.strip()
+            ) or None
+            biz = offer.listing_biz_type if offer.listing_biz_type is not None else 2
+            if offer.listing_biz_type is None:
+                logger.debug(
+                    "sophon detail: sku=%s missing biz_type, using %s",
+                    offer.offer_id,
+                    biz,
+                )
+            params: dict[str, str] = {
+                "__method": "window.fetch",
+                "request_tag_from": "h5",
+                "product_id": str(offer.offer_id),
+                "biz_type": str(biz),
+                "card_type_source": "1",
+                "mid": mid,
+                "fe_version": "1.0.0",
+                "version_code": "8.5.9",
+            }
+            if sh_city:
+                params["sh_city_name"] = sh_city
+            qs = urlencode(params)
+            url = f"{SOPHON_DETAIL_HOST}{SOPHON_DETAIL_PATH}?{qs}"
+            async with sem:
+                try:
+                    resp = await self._context.request.get(
+                        url,
+                        headers={
+                            "User-Agent": MOBILE_USER_AGENT,
+                            "Accept": "application/json, text/plain, */*",
+                            "Referer": f"{SOPHON_DETAIL_HOST}/",
+                        },
+                        timeout=45_000,
+                    )
+                    if resp.status != 200:
+                        logger.warning(
+                            "sophon detail HTTP %s for sku=%s",
+                            resp.status,
+                            offer.offer_id,
+                        )
+                        return
+                    body = await resp.json()
+                    if not isinstance(body, dict):
+                        return
+                    if not apply_sophon_detail_to_offer(offer, body):
+                        logger.debug("sophon detail rejected payload sku=%s", offer.offer_id)
+                except Exception as exc:  # noqa: BLE001
+                    logger.warning("sophon detail failed sku=%s: %s", offer.offer_id, exc)
+
+        await asyncio.gather(*(one(o) for o in offers))
 
     async def _enrich_sale_prices_from_dom(self, page: Page, offers: list[RawOffer]) -> None:
         """Replace font-obfuscated JSON prices with values from painted DOM text."""

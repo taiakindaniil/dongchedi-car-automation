@@ -80,6 +80,7 @@ async def test_pipeline_end_to_end(tmp_path: Path) -> None:
             make("b", price=300_000, transfer=1, year=2021),
             make("c", price=400_000, transfer=2, year=2019),
         ]
+        offers[0].market_valuation_yuan = 800_000.0
         new_first = await storage.upsert_offers(offers)
         assert new_first == {"a", "b", "c"}
 
@@ -108,9 +109,15 @@ async def test_pipeline_end_to_end(tmp_path: Path) -> None:
         assert "5778550614669660455" in card  # mileage tg-emoji
         assert "Пробег:" in card
         assert "Пекин" in card
+        assert "Коммерческий риск" in card
+        assert "5775887550262546277" in card  # fleet tg-emoji
+        assert "5839042506024555846" in card  # first registration tg-emoji
+        assert "/13" in card
         assert "(0." in card  # score in title
-        assert "5312241539987020022" in card  # below-median fire tg-emoji
-        assert "ниже медианы" in card
+        assert "5312241539987020022" in card  # below-valuation fire tg-emoji
+        assert "ниже рыночной оценки похожих авто" in card
+        assert "Отчёт:" in card
+        assert "данных по рискам в отчёте нет" in card
 
         header = render_digest_header(
             today=date.today(), new_count=3, sending_count=3, scanned=3

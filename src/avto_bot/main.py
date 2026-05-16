@@ -22,6 +22,7 @@ from typing import Any
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from apscheduler.triggers.cron import CronTrigger
 
+from .brands import sh_city_name_for_detail_api
 from .config import AppConfig, Settings, load_app_config
 from .integrations.notifications.telegram import TelegramNotifier
 from .parsers.dongchedi.parser import DongchediParser, RawOffer
@@ -79,6 +80,13 @@ async def run_once(settings: Settings, app_cfg: AppConfig) -> dict[str, Any]:
                 scanned += len(offers)
                 for o in offers:
                     all_offers[o.offer_id] = o  # dedupe across pages/brands
+
+            if all_offers:
+                default_cn = sh_city_name_for_detail_api(app_cfg.filters.city)
+                await parser.enrich_offers_from_mobile_detail(
+                    list(all_offers.values()),
+                    default_sh_city_name=default_cn,
+                )
 
         if app_cfg.filters.inspected_only:
             all_offers = {

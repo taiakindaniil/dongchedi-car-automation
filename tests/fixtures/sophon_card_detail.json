@@ -1,0 +1,80 @@
+{
+  "status": 0,
+  "message": "success",
+  "data": {
+    "global_info": {
+      "scheme_map": {
+        "x": "should-not-appear-in-snapshot"
+      }
+    },
+    "component_list": {
+      "bottom_bar": {
+        "bottom_bar_list": [
+          {
+            "scheme": "sslocal://noise",
+            "text": "收藏"
+          }
+        ]
+      },
+      "document": {
+        "car_base_attr": {
+          "gear_box": "自动",
+          "wheelbase": 2756
+        },
+        "car_source_attr": {
+          "first_register_time": 1682870400,
+          "merchant_remark": ""
+        }
+      },
+      "price_analysis": {
+        "market_price": {
+          "price": 6930000,
+          "price_str": "6.93",
+          "prefix": "同车况估价："
+        },
+        "price_level": 2
+      },
+      "maintenance": {
+        "report_info": {
+          "inspection_report_id": "R7618896092151500824",
+          "inspection_time": 1774001474,
+          "conclusion": {
+            "is_accident": 0,
+            "is_burned": 0,
+            "is_changed_mileage": 0,
+            "is_soaked": 0
+          }
+        }
+      }
+    },
+    "product": {
+      "product_id": 23049567,
+      "product_desc": {
+        "title": "启辰星 2023款",
+        "sub_title": "2023年 / 3.32万公里 / 北京"
+      },
+      "product_image": {
+        "main_image": {
+          "url": "https://example.com/main.webp",
+          "type": 3
+        },
+        "image_list": [
+          {"url": "https://example.com/1.webp", "type": 3},
+          {"url": "https://example.com/2.webp", "type": 3},
+          {"url": "https://example.com/3.webp", "type": 3},
+          {"url": "https://example.com/4.webp", "type": 3},
+          {"url": "https://example.com/5.webp", "type": 3},
+          {"url": "https://example.com/6.webp", "type": 3}
+        ]
+      },
+      "sku_list": [
+        {
+          "sku_price": {
+            "price": 6380000,
+            "price_str": "6.38"
+          }
+        }
+      ]
+    }
+  }
+}

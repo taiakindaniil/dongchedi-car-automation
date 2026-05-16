@@ -8,11 +8,11 @@ arithmetic in their head.
 
 Why a market-relative price score?
 
-  We don't have a ground-truth price index. But within a single scan we
-  always have N peer listings of the same `series_name`, which gives us
-  a serviceable local median. A car at 30% below the median for its
-  series-and-page is almost always a real deal (or has hidden issues
-  that a human will catch in 30 seconds on the detail page).
+  When each listing was enriched from the mobile Sophon ``card/detail``
+  payload, we prefer the platform's 同车况估价 (``market_valuation_yuan``)
+  vs. the asking price. Otherwise we still use N peer listings of the
+  same ``series_name`` to build a local median — a car far below peers is
+  often a real deal (or has issues visible on the detail page).
 """
 
 from __future__ import annotations
@@ -20,10 +20,11 @@ from __future__ import annotations
 import statistics
 from collections import defaultdict
 from dataclasses import dataclass
-from datetime import date
+from datetime import UTC, date, datetime
 
 from .brands import PREMIUM_BRAND_IDS
 from .config import ScoringWeights
+from .fleet_risk import fleet_score
 from .parsers.dongchedi.parser import RawOffer
 
 CURRENT_YEAR_FOR_AGE = date.today().year
@@ -39,6 +40,10 @@ class ScoredOffer:
     is_new_today: bool
     # Positive when ``price_yuan`` is strictly below the series (or global) median.
     price_below_median_pct: float | None = None
+    # Positive when ``price_yuan`` is strictly below Sophon 同车况估价 (fen→yuan).
+    price_below_valuation_pct: float | None = None
+    # Rule-based fleet / commercial-use risk (higher = more signals). Not in YAML weights.
+    fleet_risk_score: int = 0
 
 
 def _clip01(x: float) -> float:
@@ -81,6 +86,10 @@ def _build_series_medians(offers: list[RawOffer]) -> dict[str, float]:
 def _price_value(offer: RawOffer, medians: dict[str, float]) -> float:
     if offer.price_yuan is None or offer.price_yuan <= 0:
         return 0.0
+    mv = offer.market_valuation_yuan
+    if mv is not None and mv > 0:
+        delta = (mv - offer.price_yuan) / mv
+        return _clip01(delta / 0.5)
     key = offer.series_name or offer.title or "_unknown"
     median = medians.get(key, 0.0)
     if median <= 0:
@@ -112,13 +121,35 @@ def _owners(offer: RawOffer) -> float:
 
 
 def _inspection(offer: RawOffer) -> float:
-    return 1.0 if offer.has_inspection_report else 0.0
+    """Report / inspection sub-score in ``[0, 1]`` with gradations (not only 0/1).
+
+    Uses third-party conclusion flags when present; otherwise falls back to
+    the listing's 检测报告 tag and a lower baseline when nothing is known.
+    """
+    risks = (offer.is_accident, offer.is_soaked, offer.is_burned, offer.is_changed_mileage)
+    if any(x is True for x in risks):
+        return 0.0
+
+    n_false = sum(1 for x in risks if x is False)
+    n_none = sum(1 for x in risks if x is None)
+
+    if n_false == 4:
+        return 1.0
+    if n_none == 4:
+        return 0.45 if offer.has_inspection_report else 0.2
+    # Some dimensions explicitly clear (False), others still unknown (None).
+    return _clip01(0.22 + 0.78 * (n_false / 4.0))
 
 
 def _age(offer: RawOffer) -> float:
-    if offer.year is None:
+    reg_year: int | None = None
+    ts = offer.first_register_timestamp
+    if ts is not None and ts > 1_000_000_000:
+        reg_year = datetime.fromtimestamp(ts, tz=UTC).year
+    yr = reg_year if reg_year is not None and 1980 <= reg_year <= 2100 else offer.year
+    if yr is None:
         return 0.5
-    age = max(0, CURRENT_YEAR_FOR_AGE - offer.year)
+    age = max(0, CURRENT_YEAR_FOR_AGE - yr)
     return _clip01(1.0 - age / AGE_HORIZON_YEARS)
 
 
@@ -175,6 +206,16 @@ def score_offers(
             and o.price_yuan < median_price
         ):
             pct_below = (median_price - o.price_yuan) / median_price * 100.0
+        mv = o.market_valuation_yuan
+        pct_val: float | None = None
+        if (
+            o.price_yuan is not None
+            and o.price_yuan > 0
+            and mv is not None
+            and mv > 0
+            and o.price_yuan < mv
+        ):
+            pct_val = (mv - o.price_yuan) / mv * 100.0
         out.append(
             ScoredOffer(
                 offer=o,
@@ -182,6 +223,8 @@ def score_offers(
                 breakdown=parts,
                 is_new_today=o.offer_id in new_today_ids,
                 price_below_median_pct=pct_below,
+                price_below_valuation_pct=pct_val,
+                fleet_risk_score=fleet_score(o),
             )
         )
     out.sort(key=lambda s: s.score, reverse=True)

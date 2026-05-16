@@ -9,7 +9,7 @@ filters:
   # Список id брендов из brands.py. Пусто = все марки.
   # Примеры: 1=大众 VW, 3=奔驰 Mercedes, 4=宝马 BMW, 5=丰田 Toyota,
   # 16=比亚迪 BYD, 20=保时捷 Porsche, 63=特斯拉 Tesla, 535=小米汽车 Xiaomi.
-  brand_ids: [20]
+  brand_ids: []
 
   # Семейство кузова. Допустимо: sedan | suv | mpv | sport
   body_family: []
@@ -46,8 +46,10 @@ filters:
   # Происхождение. jv | domestic | jv_domestic | import | null.
   origin: null
 
-  # Если true — оставляем только объявления с 检测报告.
-  inspected_only: false
+  # Если true — только объявления с 检测报告; в slug /usedcar/… это предпоследний
+  # сегмент (перед финальным «x»): «1», иначе «x». После парсинга фильтр всё ещё
+  # применяется в коде (двойная страховка).
+  inspected_only: true
 
   # Сколько страниц парсить за один запуск. На странице ~60 карточек.
   pages_to_scan: 3

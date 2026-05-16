@@ -101,6 +101,11 @@ def test_origin_import() -> None:
     assert build_url(f) == BASE + "x-x-x-x-x-x-x-x-x-x-x-x-x-x-x-x-x-x-4-x-x-110000-1-4-x-x-x-x"
 
 
+def test_inspected_only_penultimate_slug_is_1() -> None:
+    f = FiltersConfig(city=110000, inspected_only=True)
+    assert build_url(f) == BASE + "x-x-x-x-x-x-x-x-x-x-x-x-x-x-x-x-x-x-x-x-x-110000-1-4-x-x-1-x"
+
+
 def test_year_range_translates_to_age() -> None:
     f = FiltersConfig(city=110000, year_range=(2020, 2025))
     age_from, age_to = f.year_range_to_age_range(now_year=2026)

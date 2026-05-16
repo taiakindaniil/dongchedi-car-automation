@@ -119,3 +119,55 @@ def test_zero_weights_do_not_crash() -> None:
     )
     scored = score_offers([make("a")], weights=weights, new_today_ids={"a"})
     assert scored[0].score == 0.0
+
+
+def test_inspection_full_sophon_clearances_score_one() -> None:
+    o = make("clr")
+    o.is_accident = o.is_soaked = o.is_burned = o.is_changed_mileage = False
+    s = score_offers([o], weights=ScoringWeights(), new_today_ids={"clr"})[0]
+    assert s.breakdown["inspection"] == 1.0
+
+
+def test_inspection_accident_flag_scores_zero() -> None:
+    o = make("bad")
+    o.is_accident = True
+    o.is_soaked = o.is_burned = o.is_changed_mileage = False
+    s = score_offers([o], weights=ScoringWeights(), new_today_ids={"bad"})[0]
+    assert s.breakdown["inspection"] == 0.0
+
+
+def test_inspection_unknown_conclusions_with_listing_tag_is_mid() -> None:
+    o = make("mid", inspect=True)
+    s = score_offers([o], weights=ScoringWeights(), new_today_ids={"mid"})[0]
+    assert abs(s.breakdown["inspection"] - 0.45) < 1e-9
+
+
+def test_inspection_unknown_without_listing_tag_is_low() -> None:
+    o = make("lowi", inspect=False)
+    s = score_offers([o], weights=ScoringWeights(), new_today_ids={"lowi"})[0]
+    assert abs(s.breakdown["inspection"] - 0.2) < 1e-9
+
+
+def test_inspection_partial_clear_flags_graduated() -> None:
+    o = make("part")
+    o.is_accident = False
+    o.is_soaked = False
+    s = score_offers([o], weights=ScoringWeights(), new_today_ids={"part"})[0]
+    assert abs(s.breakdown["inspection"] - (0.22 + 0.78 * 0.5)) < 1e-9
+
+
+def test_price_value_prefers_market_valuation_over_peer_median() -> None:
+    """When Sophon 同车况估价 is present, price_value ignores peer median."""
+    cheap = make("cheap", price=50_000, series="Peer Series")
+    pricey = make("pricey", price=500_000, series="Peer Series")
+    cheap.market_valuation_yuan = 100_000.0
+    weights = ScoringWeights()
+    scored = score_offers(
+        [cheap, pricey],
+        weights=weights,
+        new_today_ids={"cheap", "pricey"},
+    )
+    by_id = {s.offer.offer_id: s for s in scored}
+    assert by_id["cheap"].breakdown["price_value"] == 1.0
+    assert by_id["cheap"].price_below_valuation_pct is not None
+    assert abs(by_id["cheap"].price_below_valuation_pct - 50.0) < 0.1

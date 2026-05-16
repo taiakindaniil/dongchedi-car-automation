@@ -39,6 +39,8 @@ POS_BRAND: Final[int] = 19
 POS_CITY: Final[int] = 21
 POS_PAGE: Final[int] = 22
 POS_SORT: Final[int] = 23
+# Second-to-last slug segment (index 26 of 28): ``1`` = only listings with 检测报告.
+POS_INSPECTED: Final[int] = 26
 
 _LIST_SORT_TO_SLUG: Final[dict[UsedCarListSort, str]] = {
     UsedCarListSort.site_default: "x",
@@ -186,6 +188,9 @@ class DongchediListingUrlBuilder(ListingUrlBuilder):
         slots[POS_PAGE] = str(max(1, page))
 
         slots[POS_SORT] = _LIST_SORT_TO_SLUG[filters.list_sort]
+
+        if filters.inspected_only:
+            slots[POS_INSPECTED] = "1"
 
         return BASE_URL + "-".join(slots)
 

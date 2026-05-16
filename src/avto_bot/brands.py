@@ -682,6 +682,40 @@ CITIES: dict[int, str] = {
     610100: "Сиань",
 }
 
+# GB prefecture code → short Chinese city name for mobile Sophon ``sh_city_name`` query param.
+CITY_CODE_TO_SH_CITY_NAME: dict[int, str] = {
+    110000: "北京",
+    120000: "天津",
+    310000: "上海",
+    500000: "重庆",
+    320100: "南京",
+    320500: "苏州",
+    330100: "杭州",
+    340100: "合肥",
+    350100: "福州",
+    370100: "济南",
+    370200: "青岛",
+    410100: "郑州",
+    420100: "武汉",
+    430100: "长沙",
+    440100: "广州",
+    440300: "深圳",
+    440600: "佛山",
+    441900: "东莞",
+    450100: "南宁",
+    460100: "海口",
+    510100: "成都",
+    530100: "昆明",
+    610100: "西安",
+}
+
+
+def sh_city_name_for_detail_api(city_code: int | None) -> str | None:
+    """Chinese city label for Dongchedi mobile detail API; ``None`` if nationwide / unknown."""
+    if city_code is None:
+        return None
+    return CITY_CODE_TO_SH_CITY_NAME.get(city_code)
+
 
 # API ``car_source_city_name`` is usually Chinese; map to Russian labels (same as ``CITIES``).
 CITY_CN_TO_RU: dict[str, str] = {
